@@ -24,7 +24,7 @@ configure :production do
   db = URI.parse(ENV['DATABASE_URL'] || 'postgres:///postgres/faqbot_production')
 
   set :database, {
-    adapter:  db.scheme,
+    adapter:  'postgresql',
     host:     db.host,
     username: db.user,
     password: db.password,
