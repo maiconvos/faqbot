@@ -101,4 +101,128 @@ describe InterpretService do
       expect(response).to match("Questão inválida, verifique o Id")
     end
   end
+
+  describe '#list_link' do
+    it "with list command: With zero links, return don't find message" do
+      @listService = LinkModule::ListService.new({}, 'list_link')
+
+      response = @listService.call()
+      expect(response).to match("Nenhum link encontrado")
+    end
+
+    it "With two links, get urls" do
+      @listService = LinkModule::ListService.new({}, 'list_link')
+
+      link1 = create(:link, company: @company)
+      link2 = create(:link, company: @company)
+
+      response = @listService.call()
+
+      expect(response).to match(link1.url)
+      expect(response).to match(link2.url)
+    end
+  end
+
+  describe '#search_link' do
+    it "with search command: With empty query, return don't find message" do
+      @listService = LinkModule::ListService.new({'query' => ''}, 'search_link')
+
+      response = @listService.call()
+      expect(response).to match("Nenhum link encontrado")
+    end
+
+    it "with search command: With valid query, find links" do
+      link = create(:link, company: @company)
+
+      @listService = LinkModule::ListService.new({'query' => link.url.split(" ").sample}, 'search_link')
+
+      response = @listService.call()
+
+      expect(response).to match(link.url)
+    end
+  end
+
+  describe '#search_link_by_hashtag' do
+    it "with search_by_hashtag command: With invalid hashtag, return don't find message" do
+      @listService = LinkModule::ListService.new({'query' => ''}, 'search_link_by_hashtag')
+
+      response = @listService.call()
+      expect(response).to match("Nenhum link encontrado")
+    end
+
+    it "with search_by_hashtag command: With valid hashtag, find links" do
+      link = create(:link, company: @company)
+      hashtag = create(:hashtag, company: @company)
+      create(:link_hashtag, link: link, hashtag: hashtag)
+
+      @listService = LinkModule::ListService.new({'query' => hashtag.name}, 'search_link_by_hashtag')
+
+      response = @listService.call()
+
+      expect(response).to match(link.url)
+    end
+  end
+
+  describe '#create_link' do
+    before do
+      @company = create(:company)
+      @url = FFaker::Internet.domain_name
+      @hashtags = "#{FFaker::Lorem.word}, #{FFaker::Lorem.word}"
+    end
+
+    it "Without hashtag params, will receive a error" do
+      @createService = LinkModule::CreateService.new({"url-original" => @url})
+
+      response = @createService.call()
+      expect(response).to match("Hashtag Obrigatória")
+    end
+
+    it "With valid params, receive success message" do
+      @createService = LinkModule::CreateService.new({"url-original" => @url, "hashtags-original" => @hashtags})
+
+      response = @createService.call()
+      expect(response).to match("Link adicionado com sucesso")
+    end
+
+    it "With valid params, find url in database" do
+      @createService = LinkModule::CreateService.new({"url-original" => @url, "hashtags-original" => @hashtags})
+
+      response = @createService.call()
+      expect(Link.last.url).to match(@url)
+    end
+
+    it "With valid params, hashtags are created" do
+      @createService = LinkModule::CreateService.new({"url-original" => @url, "hashtags-original" => @hashtags})
+
+      response = @createService.call()
+      expect(@hashtags.split(/[\s,]+/).first).to match(Hashtag.first.name)
+      expect(@hashtags.split(/[\s,]+/).last).to match(Hashtag.last.name)
+    end
+  end
+
+  describe '#remove_link' do
+    it "With valid ID, remove link" do
+      link = create(:link, company: @company)
+      @removeService = LinkModule::RemoveService.new({"id" => link.id})
+      response = @removeService.call()
+
+      expect(response).to match("Link removido com sucesso")
+    end
+
+    it "With invalid ID, receive error message" do
+      @removeService = LinkModule::RemoveService.new({"id" => rand(1..9999)})
+      response = @removeService.call()
+
+      expect(response).to match("Id inválido")
+    end
+
+    it "With valid ID, remove link from database" do
+      link = create(:link, company: @company)
+      @removeService = LinkModule::RemoveService.new({"id" => link.id})
+
+      expect(Link.all.count).to eq(1)
+      response = @removeService.call()
+      expect(Link.all.count).to eq(0)
+    end
+  end
 end
